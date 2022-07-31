@@ -1,4 +1,4 @@
-#explore twitter analytics 
+#plot twitter analytics 
 
 library(tidyverse)
 library(fBasics)
