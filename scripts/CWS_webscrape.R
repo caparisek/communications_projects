@@ -42,35 +42,26 @@ for(i in 1:nrow(blog3)){
 
 sum(is.na(blog3$Author))
 
-for(i in 1:nrow(blog3)){
-  # Read in the URL
-  page <- read_html(blog3$URL[i])
-  # See if there is text to be extracted from this xpath and the content attribute
-  author_text <- xml_find_all(page, '/html/head/meta[4]') %>% 
-    html_attr("content") %>% 
-    #str_extract(., '(?<=[Bb]y:?\\s?)(\\w+\\s){3}') #includes colon
-    str_extract(., '(?<=[Bb]y?\\s?)(\\w+\\s){3}')
-  blog3$Author[i] <- author_text
-}
+blog3[2,5]
 
-sum(is.na(blog3$Author))
+nchar(blog3[2,5], type = "chars", allowNA = FALSE, keepNA = NA)
 
 #
 # this does similar/same to for-loop above. 
 #
-#for(i in 1:nrow(blog)){
-#  # Read in the URL
-#  page <- read_html(blog$URL[i])
-#  # See if there is text to be extracted from this xpath and the content attribute
-#  author_text <- as.data.frame(stringr::word(page, 2, sep="By"))
-#}
+for(i in 1:nrow(blog3)){
+  # Read in the URL
+  page <- read_html(blog3$URL[i])
+  # See if there is text to be extracted from this xpath and the content attribute
+  author_text2 <- as.data.frame(stringr::word(page, 2, sep="By"))
+}
 
 
 
 
-blog3<-select(blog, -c(AllTimeViews))
 
-write_csv(blog3,"data output/blog_subset.csv")
+
+
 
 
 
@@ -135,5 +126,18 @@ blog %>%
 #     } 
 #     blog$Author[i] <- author_text
 #   }
+#
+#snippet of the above; still takes just 3 words: 
+#for(i in 1:nrow(blog3)){
+#  # Read in the URL
+#  page <- read_html(blog3$URL[i])
+#  # See if there is text to be extracted from this xpath and the content attribute
+#  author_text <- xml_find_all(page, '/html/head/meta[4]') %>% 
+#    html_attr("content") %>% 
+#    str_extract(., '(?<=[Bb]y:?\\s?)(\\w+\\s){3}') #takes just 3 words
+#  blog3$Author[i] <- author_text
+#}
+#sum(is.na(blog3$Author))
+
 
 
