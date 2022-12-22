@@ -9,8 +9,8 @@ library(htm2txt)
 library(stringr)
 library(xml2)
 
+#read in data downloaded from WordPress stats page
 blog1<-read_csv("data/cws/2022-10-22 - All_Time_View_Stats_californiawaterblog.com_posts_day_10_22_2022_10_22_2022.csv")
-colnames(blog1)
 
 #add dates to all blogs using URL string
 blog2<-blog1 %>% 
@@ -18,13 +18,113 @@ blog2<-blog1 %>%
 
 #turn the date column into date "format" 
 blog2$date <- as.POSIXct( blog2$date, format="%Y/%m/%d" )
-print( blog2 )
-print( class(blog2$date) )
+print(blog2)
+class(blog2$date)
 
-#create column for author-name
-blog3<-blog2 
+x<-blog2 %>% 
+  dplyr::filter(date>"2021-12-31")
+  
+
+blog2<-x
+
+# wordcloud ---------------------------------------------------------------
+# https://towardsdatascience.com/create-a-word-cloud-with-r-bde3e7422e8a
+# http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know
+
+library(wordcloud)
+library(wordcloud2)
+library(RColorBrewer)
+library(tm)
+library(tidytext)#https://community.rstudio.com/t/removing-stopwords/122929/13
 
 
+
+
+# Convert the text to lower case
+blog2$BlogTitle <- tolower(blog2$BlogTitle)
+# Remove punctuations
+blog2$BlogTitle<-gsub("[[:punct:]]", " ", as.matrix(blog2$BlogTitle))
+# Remove numbers
+blog2$BlogTitle<-gsub("[[:digit:]]+", " ", as.matrix(blog2$BlogTitle))
+#use tidytext to unnest tokens into individual works 
+blog3<-blog2 %>%
+  tidytext::unnest_tokens(word, BlogTitle) %>% 
+  anti_join(tidytext::get_stopwords(language = "en",source = "snowball")) #remove stopwords
+# Remove whitespace
+blog3$word<-gsub("[ ]", "", as.matrix(blog3$word))
+
+
+
+dtm <- TermDocumentMatrix(blog3$word) #idk
+m <- as.matrix(dtm) #turn into matrix
+v <- sort(rowSums(m),decreasing=TRUE) #row sums
+d <- data.frame(word = names(v),freq=v) 
+#set.seed(1234)
+wordcloud::wordcloud(words = d$word, 
+                     freq = d$freq, 
+                     min.freq = 1,
+                     max.words=900, 
+                     random.order=FALSE,
+                     random.color=TRUE, 
+                     rot.per=0.35, 
+                     colors=brewer.pal(6, "Dark2")) #cant ggsave
+
+?wordcloud2
+set.seed(2)
+wordcloud2::wordcloud2(data=d, 
+                       size = 1, 
+                       minSize = 0, 
+                       gridSize =  1,
+                       fontFamily = 'Helvetica', 
+                       fontWeight = 'normal',
+                       color = brewer.pal(8, "Dark2"), 
+                       backgroundColor = "white",
+                       minRotation = -pi/4, 
+                       maxRotation = pi/4, 
+                       shuffle = FALSE,
+                       rotateRatio = 0.4, 
+                       shape = 'circle', 
+                       ellipticity = 0.75,
+                       widgetsize = NULL, 
+                       figPath = NULL, 
+                       hoverFunction = NULL)
+
+# library(htmlwidgets)                
+# ?saveW
+# saveWidget(x, file="mywordcloud.html")
+# library(webshot)
+# ??webshot
+# webshot(
+#   url = "mywordcloud.html",
+#   file = "figures/myFigure.jpeg", 
+#   delay = 6, 
+#   vwidth = 500, 
+#   vheight = 500,
+#   selector = '#canvas')
+# 
+
+?wordcloud
+display.brewer.all(n=NULL, type="all", select=NULL, exact.n=TRUE, 
+                   colorblindFriendly=TRUE)
+
+
+#kinda worked; not a fan 
+#dtm <- TermDocumentMatrix(blog2) #idk
+#m <- as.matrix(dtm) #turn into matrix
+#v <- sort(rowSums(m),decreasing=TRUE) #row sums
+#d <- data.frame(word = names(v),freq=v) 
+#set.seed(1234)
+#wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+#          max.words=900, random.order=FALSE, rot.per=0.35, 
+#          colors=brewer.pal(8, "Dark2"))
+
+
+
+
+
+
+
+# create column for author-name -------------------------------------------
 
 #extract author in 2 different ways. end up taking body-text after BY. (prob same accuracy both ways.) 
 for(i in 1:nrow(blog3)){
@@ -35,29 +135,37 @@ for(i in 1:nrow(blog3)){
     html_attr("content")
   if(is.na(author_text)){
     author_text <- xml_find_all(page, '/html/head/meta[4]') %>% 
-      html_text() 
-  } 
+      html_text() } 
+  blog3$Author[i] <- author_text}
+
+
+#snippet of the above; still takes just 3 words: 
+for(i in 1:nrow(blog3)){
+  # Read in the URL
+  page <- read_html(blog3$URL[i])
+  # See if there is text to be extracted from this xpath and the content attribute
+  author_text <- xml_find_all(page, '/html/head/meta[4]') %>% 
+    html_attr("content") %>% 
+    str_extract(., '(?<=[Bb]y:?\\s?)(\\w+\\s){3}') #takes just 3 words
   blog3$Author[i] <- author_text
 }
 
-sum(is.na(blog3$Author))
 
-blog3[2,5]
 
-nchar(blog3[2,5], type = "chars", allowNA = FALSE, keepNA = NA)
-
-#
 # this does similar/same to for-loop above. 
-#
 for(i in 1:nrow(blog3)){
   # Read in the URL
   page <- read_html(blog3$URL[i])
   # See if there is text to be extracted from this xpath and the content attribute
   author_text2 <- as.data.frame(stringr::word(page, 2, sep="By"))
-}
+  }
 
 
 
+#note the issue that it took only some words
+sum(is.na(blog3$Author))
+blog3[2,5]
+nchar(blog3[2,5], type = "chars", allowNA = FALSE, keepNA = NA)
 
 
 
