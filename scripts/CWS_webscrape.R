@@ -10,7 +10,7 @@ library(stringr)
 library(xml2)
 
 #read in data downloaded from WordPress stats page
-blog1<-read_csv("data/cws/2022-10-22 - All_Time_View_Stats_californiawaterblog.com_posts_day_10_22_2022_10_22_2022.csv")
+blog1<-read_csv("data/cws/2022-12-22 - All_Time_View_Stats_californiawaterblog.com_posts_day_12_22_2022_12_22_2022.csv")
 
 #add dates to all blogs using URL string
 blog2<-blog1 %>% 
@@ -20,6 +20,8 @@ blog2<-blog1 %>%
 blog2$date <- as.POSIXct( blog2$date, format="%Y/%m/%d" )
 print(blog2)
 class(blog2$date)
+
+
 
 x<-blog2 %>% 
   dplyr::filter(date>"2021-12-31")
