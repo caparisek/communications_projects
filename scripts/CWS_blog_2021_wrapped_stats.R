@@ -1,7 +1,5 @@
 #cws 2021 wrapped blog stats (some)
 
-
-
 library(tidyverse)
 
 cwsauthor<-read_csv("data/cws/2021-authors-californiawaterblog.com_posts_year_01_01_2021_12_31_2021.csv")
