@@ -145,6 +145,98 @@ fBasics::basicStats(e_data$VIEWS)
 
 
 
+# wordcloud ---------------------------------------------------------------
+# https://towardsdatascience.com/create-a-word-cloud-with-r-bde3e7422e8a
+# http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know
+# install.packages("wordcloud")
+# install.packages("wordcloud2")
+# install.packages("RColorBrewer")
+# install.packages("tm")
+# install.packages("tidytext")
+
+library(wordcloud)
+library(wordcloud2)
+library(RColorBrewer)
+library(tm)
+library(tidytext)#https://community.rstudio.com/t/removing-stopwords/122929/13
+
+
+
+
+# Convert the text to lower case
+e_data$TITLE <- tolower(e_data$TITLE)
+
+# Remove punctuations
+e_data$TITLE<-gsub("[[:punct:]]", " ", as.matrix(e_data$TITLE))
+
+# Remove numbers
+e_data$TITLE<-gsub("[[:digit:]]+", " ", as.matrix(e_data$TITLE))
+
+#use tidytext to unnest tokens into individual works 
+f_data<-e_data %>%
+  tidytext::unnest_tokens(word, TITLE) %>% 
+  anti_join(tidytext::get_stopwords(language = "en",source = "snowball")) #remove stopwords
+
+# Remove whitespace
+f_data$word<-gsub("[ ]", "", as.matrix(f_data$word))
+
+
+
+dtm <- TermDocumentMatrix(f_data$word) #idk
+m <- as.matrix(dtm) #turn into matrix
+v <- sort(rowSums(m),decreasing=TRUE) #row sums
+d <- data.frame(word = names(v),freq=v) 
+
+
+?wordcloud
+display.brewer.all(n=NULL, type="all", select=NULL, exact.n=TRUE, 
+                   colorblindFriendly=TRUE)
+
+set.seed(1234)
+wordcloud::wordcloud(words = d$word, 
+                     freq = d$freq, 
+                     min.freq = 2,
+                     max.words=3000, 
+                     random.order=FALSE,
+                     random.color=FALSE, 
+                     rot.per=0.35, 
+                     colors=brewer.pal(8, "Dark2")) #cant ggsave
+
+
+
+wordcloud2::wordcloud2(data=d, 
+                       size = 1, 
+                       minSize = 0, 
+                       gridSize =  1,
+                       fontFamily = 'Helvetica', 
+                       fontWeight = 'normal',
+                       color = brewer.pal(8, "Dark2"), 
+                       backgroundColor = "white",
+                       minRotation = -pi/4, 
+                       maxRotation = pi/4, 
+                       shuffle = FALSE,
+                       rotateRatio = 0.4, 
+                       shape = 'circle', 
+                       ellipticity = 0.75,
+                       widgetsize = NULL, 
+                       figPath = NULL, 
+                       hoverFunction = NULL)
+
+# library(htmlwidgets)                
+# ?saveW
+# saveWidget(x, file="mywordcloud.html")
+# library(webshot)
+# ??webshot
+# webshot(
+#   url = "mywordcloud.html",
+#   file = "figures/myFigure.jpeg", 
+#   delay = 6, 
+#   vwidth = 500, 
+#   vheight = 500,
+#   selector = '#canvas')
+# 
+
+
 
 
 
