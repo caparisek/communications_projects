@@ -49,9 +49,9 @@ options(scipen=999) #removes sci-notation
               #& we will use R to tidy up and separate this further. 
 
 #### DATE (we'll extract it from URL column)
-#### DATECOMPARE (the date we compare DATE column to: 12/31/YEAR)
-#### DAYS_TO_DEC31 (function to calc diff bw 2 date columns)
-#### WEEKS_TO_DEC31 (similar to above method)
+#### YEAR_END (the date we compare DATE column to: 12/31/YEAR)
+#### DAYS_TO_YEAR_END (function to calc diff bw 2 date columns)
+#### WEEKS_TO_YEAR_END (similar to above method)
 #### AVG-DAY  ( VIEWS / DAYS_TO_DEC31  ) 
 #### AVG-WEEK ( VIEWS / WEEKS_TO_DEC31 )
 
@@ -75,7 +75,7 @@ colnames(a_data)
 
 # Issue 1. no column names 
 # Issue 2. not enough info (cols = blog title, total views, url); what about data, authors, and scaled stats?
-
+# Issue 3. some blogs are reposts; should they count toward "uniques"? currently they do. 
 
 
 # Data Tidying ------------------------------------------------------------
@@ -90,13 +90,94 @@ b_data<-a_data %>%
   dplyr::filter(!TITLE=="Home page / Archives"
                 & !TITLE=="About") #remove this line; it's not real
 
+
+
+
+# Dates and Rates ---------------------------------------------------------
+
+# Add the end-date column
+b_data$YEAR_END <- "2023/12/31" # character column to compare dates to
+
 # Turn the date column into date "format" 
 b_data$DATE <- as.POSIXct( b_data$DATE, format="%Y/%m/%d")
+b_data$YEAR_END <- as.POSIXct( b_data$YEAR_END, format="%Y/%m/%d")
 
 
-# Filter to keep desireable year range
+# Calculate days until Dec31
+b_data$DAYS_UNTIL_YEAR_END <- as.numeric(difftime(b_data$YEAR_END, b_data$DATE, units = "days"))
+
+# Calculate weeks until Dec31
+b_data$WEEKS_UNTIL_YEAR_END <- as.numeric(difftime(b_data$YEAR_END, b_data$DATE, units = "weeks"))
+
+# Calculate average views per day for each blog (views/age)
 c_data<-b_data %>% 
+  # Calculate average views per day for each blog (views/age) « bit skewed
+  mutate(AVG_VIEWS_PER_DAY  = (VIEWS / DAYS_UNTIL_YEAR_END)) %>% 
+  mutate(AVG_VIEWS_PER_WEEK = (VIEWS / WEEKS_UNTIL_YEAR_END)) %>% 
+  # Calculate the normalized views based on the age of the blog
+  mutate(NORM_VIEWS_DAYS =  (VIEWS / (365 - DAYS_UNTIL_YEAR_END))) %>% 
+  mutate(NORM_VIEWS_WEEKS = (VIEWS * (52 - WEEKS_UNTIL_YEAR_END))) %>% 
   dplyr::filter(DATE > "2022-12-31")
+
+write_csv(c_data, "data output/2023_CWS_Wrapped_BlogStats.csv")
+
+
+
+
+
+
+
+# Clock chart -------------------------------------------------------------
+
+library(zoo)
+
+# Create the circular chart
+c_data %>% 
+  ggplot(aes(x = as.numeric(DATE), y = (log(VIEWS)))) +
+  #geom_line(aes(group = 1), color = "blue") +
+  #geom_point(color = "cornflowerblue", size = 2, alpha=0.8) +
+  geom_bar(width = 0.9, position = "fill") +
+  scale_x_continuous(labels = function(x) format(as.Date(x, origin = "2023-01-01"), "%b %d"),
+                     breaks = seq(min(c_data$DATE), max(c_data$DATE), by = "1 month")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_blank(),
+        axis.text.y = element_blank())+
+  coord_polar(start = 0, clip="off")
+
+
+fBasics::basicStats(c_data$VIEWS)
+p<-c_data %>% 
+  ggplot(aes(x = as.numeric(DATE), y = (log(VIEWS)))) +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = "cornflowerblue",alpha=0.4)+
+  geom_hline(yintercept = log(1211), linetype = "dotted", color = "blue4", size = 0.5) +
+  geom_segment(aes(x = as.numeric(DATE), xend = as.numeric(DATE), 
+                   y = 0, yend = (log(VIEWS))), 
+               color = "cornflowerblue", size = 2) +
+  geom_point(color = "blue", size = 7, alpha = 0.9) +
+  scale_x_continuous(labels = function(x) format(as.Date(x, origin = "2023-01-01"), "%b"),
+                     breaks = seq(min(c_data$DATE), max(c_data$DATE), by = "1 month")) +
+  geom_hline(yintercept = log(1211), linetype = "dashed", color = "blue4", size = 1) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0,face="bold",size=15,color="blue4"),
+        #axis.text.x = element_blank(),
+        #plot.background = element_rect(fill="white"),
+        axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        #panel.grid.major=element_blank(),
+        panel.grid.major = element_line(color = "cornflowerblue", linetype="dotted"),
+        #panel.grid.minor=element_blank(),
+        panel.grid.minor = element_line(color = "cornflowerblue", linetype = "dotted"),
+        plot.margin = margin(0, 0, 0, 0, unit = "cm"))+
+  coord_polar(start = 0)
+
+# Save the ggplot as a PNG file with DPI set to 600
+ggsave("figures/clock_plot.png", plot = p, width = 8, height = 6, units = "in", dpi = 600)
+
+
+
+
+# Author info -------------------------------------------------------------
 
 # Use tidyr and dplyr functions to transform the data
 d_data <- c_data %>%
@@ -127,20 +208,24 @@ e_data<-d_data %>%
 
 
 
+# Filter Year -------------------------------------------------------------
+
+f_data<-e_data %>% 
+  dplyr::filter(DATE > "2022-12-31")
 
 # Stats -------------------------------------------------------------------
 
-unique_posts <- e_data %>% 
+unique_posts <- f_data %>% 
   group_by(TITLE) %>% 
   tally() %>% 
   ungroup()
 
-unique_authors <- e_data %>% 
+unique_authors <- f_data %>% 
   group_by(AUTHORS_NODUP) %>% 
   tally() %>% 
   ungroup()
 
-fBasics::basicStats(e_data$VIEWS)
+fBasics::basicStats(f_data$VIEWS)
 
 
 
@@ -148,63 +233,59 @@ fBasics::basicStats(e_data$VIEWS)
 # wordcloud ---------------------------------------------------------------
 # https://towardsdatascience.com/create-a-word-cloud-with-r-bde3e7422e8a
 # http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know
-# install.packages("wordcloud")
-# install.packages("wordcloud2")
-# install.packages("RColorBrewer")
-# install.packages("tm")
-# install.packages("tidytext")
 
 library(wordcloud)
 library(wordcloud2)
 library(RColorBrewer)
 library(tm)
-library(tidytext)#https://community.rstudio.com/t/removing-stopwords/122929/13
+library(tidytext)
+library(SnowballC)
 
+# Preprocess the text data
+titles <- e_data$TITLE
+titles <- tolower(titles)
+titles <- removePunctuation(titles)
+titles <- removeNumbers(titles)
+titles <- removeWords(titles, stopwords("en"))
+titles <- stripWhitespace(titles)
+titles <- titles[titles != ""] #Filter out empty strings or whitespace
+text <- unlist(strsplit(titles, " ")) #Combine the processed text into a single document
+text <- text[text != ""] #Remove any remaining empty strings
+word_freq_df <- data.frame(word = text, stringsAsFactors = FALSE) #Convert the 'text' vector into a data frame
+word_freq_table <- table(word_freq_df$word) #Create a tally of word frequencies
+word_freq_df <- data.frame(word = names(word_freq_table), frequency = as.numeric(word_freq_table)) #Table>DF
 
+textdata<-word_freq_df %>% 
+  dplyr::filter(!word=="s") #tidy up more
 
-
-# Convert the text to lower case
-e_data$TITLE <- tolower(e_data$TITLE)
-
-# Remove punctuations
-e_data$TITLE<-gsub("[[:punct:]]", " ", as.matrix(e_data$TITLE))
-
-# Remove numbers
-e_data$TITLE<-gsub("[[:digit:]]+", " ", as.matrix(e_data$TITLE))
-
-#use tidytext to unnest tokens into individual works 
-f_data<-e_data %>%
-  tidytext::unnest_tokens(word, TITLE) %>% 
-  anti_join(tidytext::get_stopwords(language = "en",source = "snowball")) #remove stopwords
-
-# Remove whitespace
-f_data$word<-gsub("[ ]", "", as.matrix(f_data$word))
-
-
-
-dtm <- TermDocumentMatrix(f_data$word) #idk
-m <- as.matrix(dtm) #turn into matrix
-v <- sort(rowSums(m),decreasing=TRUE) #row sums
-d <- data.frame(word = names(v),freq=v) 
-
-
-?wordcloud
 display.brewer.all(n=NULL, type="all", select=NULL, exact.n=TRUE, 
                    colorblindFriendly=TRUE)
 
-set.seed(1234)
-wordcloud::wordcloud(words = d$word, 
-                     freq = d$freq, 
-                     min.freq = 2,
+set.seed(1234) #set.seed or it will keep changing
+
+wordcloud::wordcloud(words = textdata$word, 
+                     freq = textdata$freq, 
+                     min.freq = 1,
                      max.words=3000, 
                      random.order=FALSE,
                      random.color=FALSE, 
                      rot.per=0.35, 
                      colors=brewer.pal(8, "Dark2")) #cant ggsave
 
+wordcloud::wordcloud(words = textdata$word, 
+                     freq = textdata$freq, 
+                     min.freq = 1,
+                     max.words=3000, 
+                     random.order=FALSE,
+                     random.color=FALSE, 
+                     rot.per=0.32, 
+                     colors=brewer.pal(8, "Dark2")) #cant ggsave
 
 
-wordcloud2::wordcloud2(data=d, 
+citation("wordcloud")
+
+
+wordcloud2::wordcloud2(data=textdata, 
                        size = 1, 
                        minSize = 0, 
                        gridSize =  1,
@@ -221,27 +302,6 @@ wordcloud2::wordcloud2(data=d,
                        widgetsize = NULL, 
                        figPath = NULL, 
                        hoverFunction = NULL)
-
-# library(htmlwidgets)                
-# ?saveW
-# saveWidget(x, file="mywordcloud.html")
-# library(webshot)
-# ??webshot
-# webshot(
-#   url = "mywordcloud.html",
-#   file = "figures/myFigure.jpeg", 
-#   delay = 6, 
-#   vwidth = 500, 
-#   vheight = 500,
-#   selector = '#canvas')
-# 
-
-
-
-
-
-
-
 
 
 
