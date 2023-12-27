@@ -150,14 +150,20 @@ fBasics::basicStats(c_data$VIEWS)
 p<-c_data %>% 
   ggplot(aes(x = as.numeric(DATE), y = (log(VIEWS)))) +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = "cornflowerblue",alpha=0.4)+
-  geom_hline(yintercept = log(1211), linetype = "dotted", color = "blue4", size = 0.5) +
+
+  #MEDIAN INNER LINE
+  # geom_hline(yintercept = log(1211), linetype = "solid", color = "blue4", size = 0.5) +
+  # geom_text(aes(x = Inf, y = log(1211) + 0.25, label = "median", hjust = 0.8), 
+  #           angle=2, color = "blue4", fontface = "bold",size=2.2) +
+  
   geom_segment(aes(x = as.numeric(DATE), xend = as.numeric(DATE), 
                    y = 0, yend = (log(VIEWS))), 
                color = "cornflowerblue", size = 2) +
   geom_point(color = "blue", size = 7, alpha = 0.9) +
+  
   scale_x_continuous(labels = function(x) format(as.Date(x, origin = "2023-01-01"), "%b"),
                      breaks = seq(min(c_data$DATE), max(c_data$DATE), by = "1 month")) +
-  geom_hline(yintercept = log(1211), linetype = "dashed", color = "blue4", size = 1) +
+  
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 0,face="bold",size=15,color="blue4"),
         #axis.text.x = element_blank(),
@@ -173,6 +179,17 @@ p<-c_data %>%
 
 # Save the ggplot as a PNG file with DPI set to 600
 ggsave("figures/clock_plot.png", plot = p, width = 8, height = 6, units = "in", dpi = 600)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
