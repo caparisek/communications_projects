@@ -244,7 +244,8 @@ unique_authors <- f_data %>%
 
 fBasics::basicStats(f_data$VIEWS)
 
-
+citation("tidyverse")
+packageVersion("tidyverse")
 
 
 # wordcloud ---------------------------------------------------------------
