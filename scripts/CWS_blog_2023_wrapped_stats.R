@@ -3,7 +3,7 @@
 library(tidyverse)
 library(fBasics)
 options(scipen=999) #removes sci-notation
-
+library(zoo)
 
 
 
@@ -129,14 +129,13 @@ write_csv(c_data, "data output/2023_CWS_Wrapped_BlogStats.csv")
 
 # Clock chart -------------------------------------------------------------
 
-library(zoo)
-
-# Create the circular chart
+# Version 1
 c_data %>% 
   ggplot(aes(x = as.numeric(DATE), y = (log(VIEWS)))) +
-  #geom_line(aes(group = 1), color = "blue") +
-  #geom_point(color = "cornflowerblue", size = 2, alpha=0.8) +
-  geom_bar(width = 0.9, position = "fill") +
+  geom_line(aes(group = 1), color = "blue") +
+  geom_point(color = "cornflowerblue", size = 2, alpha=0.8) +
+  #geom_bar(width = 0.9, position = "fill") +
+  geom_smooth(method="loess",color="red",se=FALSE)+
   scale_x_continuous(labels = function(x) format(as.Date(x, origin = "2023-01-01"), "%b %d"),
                      breaks = seq(min(c_data$DATE), max(c_data$DATE), by = "1 month")) +
   theme_minimal() +
@@ -146,12 +145,13 @@ c_data %>%
   coord_polar(start = 0, clip="off")
 
 
+# Version 2
 fBasics::basicStats(c_data$VIEWS)
-p<-c_data %>% 
+c_data %>% 
   ggplot(aes(x = as.numeric(DATE), y = (log(VIEWS)))) +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = "cornflowerblue",alpha=0.4)+
 
-  #MEDIAN INNER LINE
+  #TO ADD MEDIAN INNER LINE; in an all-time plot perhaps; gif of diff lines over years... 
   # geom_hline(yintercept = log(1211), linetype = "solid", color = "blue4", size = 0.5) +
   # geom_text(aes(x = Inf, y = log(1211) + 0.25, label = "median", hjust = 0.8), 
   #           angle=2, color = "blue4", fontface = "bold",size=2.2) +
@@ -159,7 +159,7 @@ p<-c_data %>%
   geom_segment(aes(x = as.numeric(DATE), xend = as.numeric(DATE), 
                    y = 0, yend = (log(VIEWS))), 
                color = "cornflowerblue", size = 2) +
-  geom_point(color = "blue", size = 7, alpha = 0.9) +
+  geom_point(color = "blue4", size = 7, alpha = 0.9) +
   
   scale_x_continuous(labels = function(x) format(as.Date(x, origin = "2023-01-01"), "%b"),
                      breaks = seq(min(c_data$DATE), max(c_data$DATE), by = "1 month")) +
@@ -178,7 +178,7 @@ p<-c_data %>%
   coord_polar(start = 0)
 
 # Save the ggplot as a PNG file with DPI set to 600
-ggsave("figures/clock_plot.png", plot = p, width = 8, height = 6, units = "in", dpi = 600)
+ggsave("figures/clock_plot.png", width = 8, height = 6, units = "in", dpi = 600)
 
 
 
